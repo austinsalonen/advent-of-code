@@ -1,0 +1,160 @@
+<!-- livebook:{"file_entries":[{"name":"child-elf-coloring-over-an-excel-spreadsheet.jpeg","type":"attachment"}]} -->
+
+# Advent of Code 2023 - Day 1
+
+## Introduction
+
+Child elf amends a trebuchet calibration document and our goal is to extract the values.
+
+Advent of Code 2023 Day 1: https://adventofcode.com/2023/day/1
+
+<!-- livebook:{"break_markdown":true} -->
+
+![](files/child-elf-coloring-over-an-excel-spreadsheet.jpeg)
+Image prompt:  https://imagine.meta.com/?prompt=child+elf+coloring+over+an+excel+spreadsheet
+
+## Input
+
+```elixir
+input =
+  File.read!(File.cwd!() <> "/code/advent_of_code/aoc2023/day01.input")
+  |> String.split()
+```
+
+## Part 1
+
+We need to extract a two-digit number from every line.  The tens digit is the first digit in the line; the ones digit is the last digit.
+
+Since we're extracting digits as characters, we need to subtract ASCII 0 from every number.
+
+```elixir
+input
+|> Enum.map(&Enum.filter(&1 |> to_charlist(), fn c -> c >= ?0 and c <= ?9 end))
+|> Enum.map(&{Enum.at(&1, 0), Enum.at(&1, -1)})
+|> Enum.map(fn {t, o} -> (t - ?0) * 10 + o - ?0 end)
+|> Enum.sum()
+```
+
+First pass was successful as written.
+
+## Part 2
+
+Turns out digits as words are also valid digits so we need to amend our solution.
+
+```elixir
+words_to_numbers = fn s ->
+  Regex.split(~r/one|two|three|four|five|six|seven|eight|nine/, s, include_captures: true)
+  |> Enum.map(fn
+    "one" -> "1"
+    "two" -> "2"
+    "three" -> "3"
+    "four" -> "4"
+    "five" -> "5"
+    "six" -> "6"
+    "seven" -> "7"
+    "eight" -> "8"
+    "nine" -> "9"
+    x -> x
+  end)
+  |> Enum.join()
+end
+
+# input = [
+#   "two1nine",
+#   "eightwothree",
+#   "abcone2threexyz",
+#   "xtwone3four",
+#   "4nineeightseven2",
+#   "zoneight234",
+#   "7pqrstsixteen"
+# ]
+
+input
+|> Enum.map(words_to_numbers)
+|> Enum.map(&Enum.filter(&1 |> to_charlist(), fn c -> c > ?0 and c <= ?9 end))
+|> Enum.map(&{Enum.at(&1, 0), Enum.at(&1, -1)})
+|> Enum.map(fn {t, o} -> (t - ?0) * 10 + o - ?0 end)
+|> Enum.sum()
+
+# 54623 is too high
+```
+
+Wrong answer.  I suspect the "eightwothree" case may be a clue to the failure.  If the string ended with "eightwo", we would think the last digit is 8 and not 2.
+
+If we were to continue down this path, we would need to evaluate the string one character at a time when mapping words to numbers.  But let's try something else...
+
+## Using modules to clean it up
+
+Using modules to make the pattern matching cleaner.  Re-implemented part 1 to set an API
+
+```elixir
+defmodule Digits.Part1 do
+  def first_digit(<<c, _rest::binary>>) when c >= ?0 and c <= ?9, do: c - ?0
+  def first_digit(<<_, rest::binary>>), do: first_digit(rest)
+
+  def last_digit(s), do: String.reverse(s) |> first_digit()
+end
+```
+
+```elixir
+input
+|> Enum.map(fn s -> 10 * Digits.Part1.first_digit(s) + Digits.Part1.last_digit(s) end)
+|> Enum.sum()
+```
+
+Pattern matching FTW here.  We look either a single digit, the text of a digit, or something else.  We look forwards for the first number or we reverse the string and look for either "backwards."
+
+```elixir
+defmodule Digits.Part2 do
+  # Stop when we encounter a new "digit"
+  def first_digit(<<c, _rest::binary>>) when c >= ?0 and c <= ?9, do: c - ?0
+  def first_digit(<<"one", _rest::binary>>), do: 1
+  def first_digit(<<"two", _rest::binary>>), do: 2
+  def first_digit(<<"three", _rest::binary>>), do: 3
+  def first_digit(<<"four", _rest::binary>>), do: 4
+  def first_digit(<<"five", _rest::binary>>), do: 5
+  def first_digit(<<"six", _rest::binary>>), do: 6
+  def first_digit(<<"seven", _rest::binary>>), do: 7
+  def first_digit(<<"eight", _rest::binary>>), do: 8
+  def first_digit(<<"nine", _rest::binary>>), do: 9
+  def first_digit(<<_, rest::binary>>), do: first_digit(rest)
+
+  # Reverse the string, then search for digits but backwards
+  def last_digit(s), do: _last_digit(String.reverse(s))
+  defp _last_digit(<<c, _rest::binary>>) when c >= ?0 and c <= ?9, do: c - ?0
+  defp _last_digit(<<"eno", _rest::binary>>), do: 1
+  defp _last_digit(<<"owt", _rest::binary>>), do: 2
+  defp _last_digit(<<"eerht", _rest::binary>>), do: 3
+  defp _last_digit(<<"ruof", _rest::binary>>), do: 4
+  defp _last_digit(<<"evif", _rest::binary>>), do: 5
+  defp _last_digit(<<"xis", _rest::binary>>), do: 6
+  defp _last_digit(<<"neves", _rest::binary>>), do: 7
+  defp _last_digit(<<"thgie", _rest::binary>>), do: 8
+  defp _last_digit(<<"enin", _rest::binary>>), do: 9
+  defp _last_digit(<<_, rest::binary>>), do: _last_digit(rest)
+end
+```
+
+```elixir
+input
+|> Enum.map(fn s -> 10 * Digits.Part2.first_digit(s) + Digits.Part2.last_digit(s) end)
+|> Enum.sum()
+```
+
+```elixir
+defmodule Digits do
+  @moduledoc """
+  Silly module to DRY-ify the code for parts 1 & 2.
+  """
+  def sum(input, module) do
+    input
+    |> Enum.map(fn s -> 10 * module.first_digit(s) + module.last_digit(s) end)
+    |> Enum.sum()
+  end
+end
+```
+
+```elixir
+Digits.sum(input, Digits.Part1) |> IO.inspect(label: :part1)
+Digits.sum(input, Digits.Part2) |> IO.inspect(label: :part2)
+```
