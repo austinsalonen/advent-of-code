@@ -1,0 +1,87 @@
+<!-- livebook:{"file_entries":[{"name":"cartoonish-elf-with-a-bag-of-red-green-and-blue-cubes.jpeg","type":"attachment"}]} -->
+
+# Advent of Code 2023 - Day 2
+
+## Intro
+
+We're playing a guessing game involving at most 12 red cubes, 13 green cubes, and 14 blue cubes.  We need to figure out which games are possible given these restrictions.
+
+<!-- livebook:{"break_markdown":true} -->
+
+![](files/cartoonish-elf-with-a-bag-of-red-green-and-blue-cubes.jpeg)
+Prompt:  https://imagine.meta.com/?prompt=cartoonish+elf+with+a+bag+of+red%2C+green%2C+and+blue+cubes
+
+## Input Parsing
+
+```elixir
+## given test input
+# Game 1: 3 blue, 4 red; 1 red, 2 green, 6 blue; 2 green
+# Game 2: 1 blue, 2 green; 3 green, 4 blue, 1 red; 1 green, 1 blue
+# Game 3: 8 green, 6 blue, 20 red; 5 blue, 4 red, 13 green; 5 green, 1 red
+# Game 4: 1 green, 3 red, 6 blue; 3 green, 6 red; 3 green, 15 blue, 14 red
+# Game 5: 6 red, 1 blue, 3 green; 2 blue, 1 red, 2 green
+
+to_map = fn draw ->
+  draw
+  |> String.split(", ")
+  |> Enum.map(&String.split/1)
+  |> Enum.map(fn [a, b] -> {b, Integer.parse(a) |> elem(0)} end)
+  |> Map.new()
+end
+
+to_maps = fn draws ->
+  draws
+  |> Enum.map(to_map)
+end
+
+# We're discarding the "Game X: " prefix because we can recreate it with `with_index` later
+input =
+  File.read!(File.cwd!() <> "/code/advent_of_code/aoc2023/day02.input")
+  |> String.split("\r\n")
+  |> Enum.map(&(String.split(&1, ": ") |> Enum.at(-1)))
+  |> Enum.map(&String.split(&1, "; "))
+  |> Enum.map(to_maps)
+```
+
+## Part 1
+
+We need the sum of game numbers that are possible given there are only 12 red cubes, 13 green cubes, and 14 blue cubes.
+
+```elixir
+possible? = fn draw ->
+  Map.get(draw, "red", 0) <= 12 and
+    Map.get(draw, "green", 0) <= 13 and
+    Map.get(draw, "blue", 0) <= 14
+end
+
+input
+|> Stream.map(&Enum.all?(&1, possible?))
+|> Stream.with_index(1)
+|> Stream.filter(&elem(&1, 0))
+|> Stream.map(&elem(&1, 1))
+|> Enum.sum()
+```
+
+## Part 2
+
+We need to find the fewest number of cubes of each color to make the game possible.  The "power" of each game is the product of those counts.
+
+For each game, we get the maximum of each color, multiply them together, and then sum everything.
+
+```elixir
+maximums = fn m, acc ->
+  Map.update!(acc, "blue", fn x -> max(x, Map.get(m, "blue", 0)) end)
+  |> Map.update!("green", fn x -> max(x, Map.get(m, "green", 0)) end)
+  |> Map.update!("red", fn x -> max(x, Map.get(m, "red", 0)) end)
+end
+
+power = fn game ->
+  Enum.reduce(game, %{"blue" => 0, "red" => 0, "green" => 0}, maximums)
+  |> Map.values()
+  |> Enum.product()
+end
+
+input
+|> Stream.map(power)
+|> Enum.sum()
+```
