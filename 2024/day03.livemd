@@ -1,0 +1,83 @@
+# Advent of Code 2024 - Day 3
+
+## Section
+
+```elixir
+defmodule Day3 do
+  def multiply_sum(txt) do
+    txt
+    |> parse_mul([])
+    |> Enum.map(fn {a, b} -> a * b end)
+    |> Enum.sum()
+  end
+
+  def parse_int(x) do
+    case Integer.parse(x) do
+      {n, ""} -> n  # only whole matches
+      _ -> 0
+    end
+  end
+
+  def parse_mul(<<>>, acc), do: acc
+  for x <- 1..3, y <- 1..3 do
+    def parse_mul(<<"mul(", a :: binary-size(unquote(x)), ",", b :: binary-size(unquote(y)), ")", rest::binary>>, acc),
+      do: parse_mul(rest, [{parse_int(a), parse_int(b)} | acc])
+  end
+  def parse_mul(<<_, rest::binary>>, acc), do: parse_mul(rest, acc)
+
+  def conditional_multiply_sum(txt) do
+    txt
+    |> cond_parse([], :enabled)
+    |> Enum.map(fn {a, b} -> a * b end)
+    |> Enum.sum()
+  end
+
+  def cond_parse(<<>>, acc, _), do: acc
+  
+  def cond_parse(<<"don't()", rest::binary>>, acc, _),
+    do: cond_parse(rest, acc, :disabled)
+  
+  def cond_parse(<<"do()", rest::binary>>, acc, _),
+    do: cond_parse(rest, acc, :enabled)
+  
+  for x <- 1..3, y <- 1..3 do
+    def cond_parse(<<"mul(", a :: binary-size(unquote(x)), ",", b :: binary-size(unquote(y)), ")", rest::binary>>, acc, :enabled),
+      do: cond_parse(rest, [{parse_int(a), parse_int(b)} | acc], :enabled)
+  end
+  
+  def cond_parse(<<_, rest::binary>>, acc, enabled?),
+    do: cond_parse(rest, acc, enabled?)
+end
+```
+
+```elixir
+Day3.parse_mul("mul(0,x)mul(x,0)mul(x9,7x)xmul(2,4)%&mul[3,7]!@^do_not_mul(5,5)+mul(32,64]then(mul(11,8)mul(8,5))", [])
+```
+
+```elixir
+161 = "xmul(2,4)%&mul[3,7]!@^do_not_mul(5,5)+mul(32,64]then(mul(11,8)mul(8,5))"
+|> Day3.multiply_sum()
+```
+
+```elixir
+File.read!(File.cwd!() <> "/advent-of-code/2024/day03.input")
+|> Day3.multiply_sum()
+
+#184576302
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+48 = "xmul(2,4)&mul[3,7]!^don't()_mul(5,5)+mul(32,64](mul(11,8)undo()?mul(8,5))"
+|> Day3.conditional_multiply_sum()
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+File.read!(File.cwd!() <> "/advent-of-code/2024/day03.input")
+|> Day3.conditional_multiply_sum()
+
+#118173507
+```

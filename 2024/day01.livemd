@@ -1,0 +1,26 @@
+# Advent of Code 2024 - Day 1
+
+## Section
+
+```elixir
+{lhs, rhs} = File.read!(File.cwd!() <> "/advent-of-code/2024/day01.input")
+|> String.split()
+|> Enum.map(&String.to_integer/1)
+|> Enum.with_index()
+|> Enum.split_with(fn {_, i} -> rem(i, 2) == 0 end)
+```
+
+```elixir
+Enum.zip(Enum.sort(lhs), Enum.sort(rhs))
+|> Enum.map(fn {{a, _}, {b, _}} -> abs(a-b) end)
+|> Enum.sum()
+```
+
+```elixir
+rs = rhs |> Enum.map(&elem(&1, 0)) |> Enum.frequencies()
+
+lhs
+|> Enum.map(&elem(&1, 0))
+|> Enum.map(&(&1 * Map.get(rs, &1, 0)))
+|> Enum.sum()
+```
